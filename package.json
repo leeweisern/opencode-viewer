@@ -1,5 +1,5 @@
 {
-  "name": "@leeweisern/opencode-viewer",
+  "name": "@virmont/opencode-viewer",
   "version": "1.0.0",
   "description": "Local GUI to browse your OpenCode sessions, messages, and tool calls from the SQLite database",
   "bin": {
