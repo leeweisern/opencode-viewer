@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "dev": "bun run --watch server.ts",
-    "start": "bun run server.ts"
+    "start": "bun run server.ts",
+    "deploy": "npm version patch --no-git-tag-version && git add -A && git commit -m \"v$(node -p require('./package.json').version)\" && git push && npm publish --access public"
   },
   "keywords": [
     "opencode",
