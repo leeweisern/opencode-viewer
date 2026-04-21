@@ -1,9 +1,9 @@
 {
   "name": "@virmont/opencode-viewer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Local GUI to browse your OpenCode sessions, messages, and tool calls from the SQLite database",
   "bin": {
-    "opencode-viewer": "./bin/cli.js"
+    "opencode-viewer": "bin/cli.js"
   },
   "files": [
     "bin/",
@@ -27,7 +27,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/leeweisern/opencode-viewer"
+    "url": "git+https://github.com/leeweisern/opencode-viewer.git"
   },
   "engines": {
     "bun": ">=1.0.0"
