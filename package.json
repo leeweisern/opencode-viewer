@@ -1,6 +1,6 @@
 {
   "name": "@virmont/opencode-viewer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Local GUI to browse your OpenCode sessions, messages, and tool calls from the SQLite database",
   "bin": {
     "opencode-viewer": "bin/cli.js"
