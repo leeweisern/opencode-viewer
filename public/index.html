@@ -1,0 +1,1545 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenCode Session Viewer</title>
+  <style>
+    :root {
+      --bg-main: #f5f5f5;
+      --bg-panel: #ffffff;
+      --bg-item: #f8f8f8;
+      --bg-user: #e8f0fe;
+      --bg-assistant: #e8f5e9;
+      --text-primary: #1a1a1a;
+      --text-secondary: #666;
+      --text-muted: #999;
+      --accent: #6366f1;
+      --border: #e0e0e0;
+      --error: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg-main);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 360px minmax(0, 1fr);
+      background: var(--bg-main);
+    }
+
+    .panel {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+    }
+
+    .panel:last-child {
+      border-right: none;
+    }
+
+    .panel-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow: auto;
+      padding: 10px;
+      min-height: 0;
+    }
+
+    .state {
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 14px 8px;
+    }
+
+    .state.error {
+      color: var(--error);
+    }
+
+    .project-row,
+    .session-card {
+      width: 100%;
+      background: var(--bg-item);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .project-row:hover,
+    .session-card:hover {
+      border-color: #ccc;
+      background: #f0f0f0;
+    }
+
+    .project-row.selected,
+    .session-card.selected {
+      border-color: rgba(99, 102, 241, 0.5);
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .project-row {
+      padding: 10px;
+    }
+
+    .project-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      background: #bbb;
+    }
+
+    .project-name {
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .project-time {
+      font-size: 11px;
+      color: var(--text-secondary);
+      flex: 0 0 auto;
+    }
+
+    .project-path {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .session-card {
+      padding: 10px 11px;
+    }
+
+    .session-title {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--text-primary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .session-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .badge {
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #6366f1;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 10px;
+      text-transform: lowercase;
+    }
+
+    .load-more-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 6px 0 2px;
+    }
+
+    .load-more-btn,
+    .mini-btn {
+      background: #fff;
+      color: var(--text-primary);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .load-more-btn:hover,
+    .mini-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .messages {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 100%;
+    }
+
+    .message {
+      align-self: stretch;
+      background: var(--bg-item);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .message.role-user {
+      background: var(--bg-user);
+    }
+
+    .message.role-assistant {
+      background: var(--bg-assistant);
+    }
+
+    .message-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .message-meta .pill {
+      border: 1px solid #ddd;
+      border-radius: 999px;
+      padding: 1px 7px;
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .part {
+      margin-bottom: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .part:last-child {
+      margin-bottom: 0;
+    }
+
+    .part pre,
+    .part code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .part pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 9px;
+      margin: 8px 0 0;
+      color: #333;
+      font-size: 12px;
+      overflow: auto;
+      max-height: 420px;
+    }
+
+    .part code {
+      background: rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+      padding: 1px 4px;
+      font-size: 0.92em;
+    }
+
+    details {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.02);
+      padding: 6px 8px;
+    }
+
+    summary {
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .summary-reasoning {
+      font-style: italic;
+      color: #888;
+    }
+
+    .summary-tool {
+      color: #6366f1;
+    }
+
+    .part-patch {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.02);
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .part-patch-files {
+      margin-top: 4px;
+      color: var(--text-secondary);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+    }
+
+    .part-file {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.02);
+      padding: 8px 10px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .part-image {
+      max-width: 100%;
+      max-height: 500px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-top: 8px;
+      display: block;
+      cursor: pointer;
+    }
+
+    .part-image:hover {
+      border-color: var(--accent);
+    }
+
+    .part-file-wrap {
+      margin-bottom: 8px;
+    }
+
+    .part-agent {
+      display: inline-block;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: rgba(99, 102, 241, 0.08);
+      color: #6366f1;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+    }
+
+    .part-step-finish {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 4px 0;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .part-compaction {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 8px 0;
+      letter-spacing: 0.5px;
+    }
+
+    .part-retry {
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 2px 0;
+    }
+
+    .tool-status {
+      display: inline-block;
+      font-size: 10px;
+      border-radius: 999px;
+      padding: 1px 6px;
+      margin-left: 6px;
+    }
+
+    .tool-status.completed { background: rgba(34, 197, 94, 0.1); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .tool-status.error { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .tool-status.pending { background: rgba(250, 204, 21, 0.1); color: #b45309; border: 1px solid rgba(250, 204, 21, 0.3); }
+
+    .subagent-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      margin: 4px 0;
+      background: #f0f0ff;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .subagent-card:hover {
+      border-color: rgba(99, 102, 241, 0.5);
+      background: #e8e8ff;
+    }
+
+    .subagent-card-icon {
+      font-size: 20px;
+      flex: 0 0 auto;
+    }
+
+    .subagent-card-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .subagent-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .subagent-card-time {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .subagent-card-arrow {
+      color: var(--accent);
+      font-size: 16px;
+      flex: 0 0 auto;
+    }
+
+    .back-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+      flex: 0 0 auto;
+    }
+
+    .back-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .meta-line {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .tiny-muted {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    @media (max-width: 1024px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(170px, 32vh) minmax(170px, 32vh) minmax(260px, 1fr);
+      }
+
+      .panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .panel:last-child {
+        border-bottom: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="projects-panel" class="panel"></aside>
+    <section id="sessions-panel" class="panel"></section>
+    <main id="messages-panel" class="panel"></main>
+  </div>
+
+  <script>
+    const state = {
+      projects: [],
+      projectsLoading: false,
+      projectsError: null,
+
+      selectedProjectId: null,
+      sessions: [],
+      sessionsLoading: false,
+      sessionsLoadingMore: false,
+      sessionsError: null,
+      sessionsPage: 1,
+      sessionsLimit: 50,
+      sessionsHasMore: false,
+      sessionsTotal: null,
+
+      selectedSessionId: null,
+      sessionLoading: false,
+      sessionError: null,
+      sessionData: null,
+      messages: [],
+      sessionStack: []
+    };
+
+    const el = {
+      projects: document.getElementById("projects-panel"),
+      sessions: document.getElementById("sessions-panel"),
+      messages: document.getElementById("messages-panel")
+    };
+
+    let projectsRequestId = 0;
+    let sessionsRequestId = 0;
+    let sessionRequestId = 0;
+    let toolResultCounter = 0;
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function truncate(str, len) {
+      const value = String(str ?? "");
+      if (value.length <= len) return value;
+      return value.slice(0, Math.max(0, len - 1)) + "…";
+    }
+
+    function timeAgo(timestamp) {
+      const ms = parseTimestamp(timestamp);
+      if (!ms) return "unknown";
+
+      const diff = Date.now() - ms;
+      if (diff < 0) return "just now";
+
+      const sec = Math.floor(diff / 1000);
+      if (sec < 45) return "just now";
+      if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+      if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+      if (sec < 604800) return Math.floor(sec / 86400) + "d ago";
+      if (sec < 2592000) return Math.floor(sec / 604800) + "w ago";
+      if (sec < 31536000) return Math.floor(sec / 2592000) + "mo ago";
+      return Math.floor(sec / 31536000) + "y ago";
+    }
+
+    function formatDate(timestamp) {
+      const ms = parseTimestamp(timestamp);
+      if (!ms) return "Unknown";
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(new Date(ms));
+    }
+
+    function shortDate(timestamp) {
+      const ms = parseTimestamp(timestamp);
+      if (!ms) return "";
+      const d = new Date(ms);
+      const now = new Date();
+      const month = d.toLocaleString("en-US", { month: "short" });
+      const day = d.getDate();
+      if (d.getFullYear() !== now.getFullYear()) {
+        return `${month} ${day}, ${d.getFullYear()}`;
+      }
+      return `${month} ${day}`;
+    }
+
+    function renderMarkdownLite(text) {
+      const raw = String(text ?? "");
+      const placeholders = [];
+
+      let html = escapeHtml(raw);
+      html = html.replace(/```([\s\S]*?)```/g, (_, code) => {
+        const token = `@@CODEBLOCK_${placeholders.length}@@`;
+        const trimmed = String(code).replace(/^\n+|\n+$/g, "");
+        placeholders.push(`<pre><code>${trimmed}</code></pre>`);
+        return token;
+      });
+
+      html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\n/g, "<br>");
+
+      html = html.replace(/@@CODEBLOCK_(\d+)@@/g, (_, idx) => placeholders[Number(idx)] || "");
+      return html;
+    }
+
+    function parseTimestamp(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const asNumber = Number(value);
+      if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+
+      const asDate = Date.parse(String(value));
+      return Number.isNaN(asDate) ? null : asDate;
+    }
+
+    function pathBasename(path) {
+      const clean = String(path ?? "").trim();
+      if (!clean) return "Unknown";
+      const parts = clean.split(/[\\/]/).filter(Boolean);
+      return parts[parts.length - 1] || "Unknown";
+    }
+
+    function pathTail(path) {
+      const clean = String(path ?? "").trim();
+      if (!clean) return "Unknown";
+      const parts = clean.split(/[\\/]/).filter(Boolean);
+      if (parts.length <= 2) return parts.join("/") || "Unknown";
+      return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+    }
+
+    function toDisplayString(value) {
+      if (value === null || value === undefined) return "";
+      if (typeof value === "string") return value;
+      if (typeof value === "number" || typeof value === "boolean") return String(value);
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch {
+        return String(value);
+      }
+    }
+
+    function normalizeToolStatus(status) {
+      const raw = String(status ?? "").trim().toLowerCase();
+      if (!raw) return "pending";
+      if (raw === "completed" || raw === "complete" || raw === "success" || raw === "succeeded" || raw === "done") {
+        return "completed";
+      }
+      if (raw === "error" || raw === "failed" || raw === "failure") {
+        return "error";
+      }
+      return "pending";
+    }
+
+    function hasContent(value) {
+      if (value === null || value === undefined) return false;
+      if (typeof value === "string") return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === "object") return Object.keys(value).length > 0;
+      return true;
+    }
+
+    function formatDuration(start, end) {
+      const startMs = parseTimestamp(start);
+      const endMs = parseTimestamp(end);
+      if (startMs === null || endMs === null) return null;
+      const durationMs = endMs - startMs;
+      if (!Number.isFinite(durationMs) || durationMs < 0) return null;
+      if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
+
+      const seconds = durationMs / 1000;
+      const fixed = seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2);
+      return `${fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1")}s`;
+    }
+
+    function formatTokenValue(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? num.toLocaleString() : "?";
+    }
+
+    function safeColor(color) {
+      if (typeof color !== "string") return "#bbb";
+      const value = color.trim();
+      if (/^#([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/.test(value)) return value;
+      if (/^(rgb|hsl)a?\(/i.test(value)) return value;
+      return "#bbb";
+    }
+
+    function firstArray(candidates) {
+      for (const candidate of candidates) {
+        if (Array.isArray(candidate)) return candidate;
+      }
+      return [];
+    }
+
+    function extractProjects(payload) {
+      return firstArray([
+        payload,
+        payload?.projects,
+        payload?.items,
+        payload?.results,
+        payload?.data,
+        payload?.data?.projects,
+        payload?.data?.items,
+        payload?.data?.results
+      ]);
+    }
+
+    function extractSessions(payload) {
+      return firstArray([
+        payload,
+        payload?.sessions,
+        payload?.items,
+        payload?.results,
+        payload?.data,
+        payload?.data?.sessions,
+        payload?.data?.items,
+        payload?.data?.results
+      ]);
+    }
+
+    function extractMessages(payload) {
+      return firstArray([
+        payload?.messages,
+        payload?.session?.messages,
+        payload?.data?.messages,
+        payload?.data?.session?.messages,
+        payload
+      ]);
+    }
+
+    function normalizeProject(item, index) {
+      const worktree = item?.worktree_path ?? item?.worktreePath ?? item?.worktree ?? item?.path ?? "";
+      const id = String(item?.id ?? item?.project_id ?? item?.projectId ?? item?.uuid ?? worktree ?? `project-${index}`);
+      return {
+        raw: item,
+        id,
+        name: item?.name ?? item?.project_name ?? item?.projectName ?? item?.title ?? pathBasename(worktree),
+        worktree,
+        iconColor: item?.icon_color ?? item?.iconColor ?? null,
+        updatedAt: parseTimestamp(item?.time_updated ?? item?.updated_at ?? item?.updatedAt ?? item?.last_updated ?? item?.lastUpdate)
+      };
+    }
+
+    function normalizeSession(item, index) {
+      const id = String(item?.id ?? item?.session_id ?? item?.sessionId ?? item?.uuid ?? `session-${index}`);
+      const summaryValue = item?.summary ?? item?.summary_text ?? item?.summaryText ?? item?.has_summary ?? item?.hasSummary;
+      return {
+        raw: item,
+        id,
+        title: item?.title ?? item?.name ?? item?.session_title ?? item?.sessionTitle ?? "Untitled",
+        updatedAt: parseTimestamp(item?.time_updated ?? item?.updated_at ?? item?.updatedAt ?? item?.time_created ?? item?.created_at),
+        hasSummary: Boolean(summaryValue)
+      };
+    }
+
+    function extractTokenCount(item) {
+      const direct = item?.token_count ?? item?.tokenCount ?? item?.total_tokens ?? item?.totalTokens;
+      if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+
+      const tokensObj = item?.tokens;
+      if (tokensObj && typeof tokensObj === "object") {
+        const total = tokensObj.total ?? tokensObj.total_tokens ?? tokensObj.totalTokens;
+        if (typeof total === "number" && Number.isFinite(total)) return total;
+
+        const input = Number(tokensObj.input ?? tokensObj.input_tokens ?? tokensObj.prompt_tokens ?? NaN);
+        const output = Number(tokensObj.output ?? tokensObj.output_tokens ?? tokensObj.completion_tokens ?? NaN);
+        if (Number.isFinite(input) || Number.isFinite(output)) {
+          return (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
+        }
+      }
+
+      const inputTokens = Number(item?.input_tokens ?? item?.prompt_tokens ?? NaN);
+      const outputTokens = Number(item?.output_tokens ?? item?.completion_tokens ?? NaN);
+      if (Number.isFinite(inputTokens) || Number.isFinite(outputTokens)) {
+        return (Number.isFinite(inputTokens) ? inputTokens : 0) + (Number.isFinite(outputTokens) ? outputTokens : 0);
+      }
+
+      return null;
+    }
+
+    function normalizeMessageParts(item) {
+      const parts = item?.parts ?? item?.content ?? item?.blocks ?? item?.message;
+      if (Array.isArray(parts)) {
+        return parts.map((part) => {
+          if (typeof part === "string") return { type: "text", text: part };
+          if (part && typeof part === "object") return part;
+          return { type: "text", text: String(part ?? "") };
+        });
+      }
+
+      if (typeof parts === "string") return [{ type: "text", text: parts }];
+      if (item?.text) return [{ type: "text", text: item.text }];
+      if (item?.content && typeof item.content === "object") return [{ type: "text", text: toDisplayString(item.content) }];
+      return [];
+    }
+
+    function normalizeMessage(item, index) {
+      if (item?._type === "subagent") {
+        const id = String(item?.id ?? item?.session_id ?? item?.sessionId ?? `subagent-${index}`);
+        const timeCreated = parseTimestamp(item?.time_created ?? item?.created_at ?? item?.createdAt);
+        const timeUpdated = parseTimestamp(item?.time_updated ?? item?.updated_at ?? item?.updatedAt);
+        return {
+          raw: item,
+          _type: "subagent",
+          id,
+          title: item?.title ?? item?.name ?? "Subagent",
+          summary: item?.summary ?? null,
+          time_created: timeCreated,
+          time_updated: timeUpdated,
+          timestamp: timeCreated ?? timeUpdated,
+          role: null,
+          model: null,
+          cost: null,
+          tokens: null,
+          parts: []
+        };
+      }
+
+      const role = String(item?.role ?? item?.author ?? "unknown").toLowerCase();
+      return {
+        raw: item,
+        _type: "message",
+        id: String(item?.id ?? item?.message_id ?? item?.messageId ?? `message-${index}`),
+        role,
+        model: item?.model ?? item?.modelID ?? item?.model_name ?? item?.modelName ?? item?.metadata?.model ?? null,
+        timestamp: parseTimestamp(item?.time_created ?? item?.created_at ?? item?.createdAt ?? item?.time_updated ?? item?.updated_at),
+        cost: item?.cost_usd ?? item?.cost ?? item?.metadata?.cost_usd ?? item?.metadata?.cost ?? null,
+        tokens: extractTokenCount(item),
+        parts: normalizeMessageParts(item)
+      };
+    }
+
+    function formatCost(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return null;
+      return `$${num.toFixed(num < 0.01 ? 5 : 4)}`;
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url);
+      const text = await response.text();
+
+      let payload = null;
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = text;
+        }
+      }
+
+      if (!response.ok) {
+        const reason =
+          (payload && typeof payload === "object" && (payload.error || payload.message)) ||
+          (typeof payload === "string" && payload) ||
+          response.statusText ||
+          `HTTP ${response.status}`;
+        throw new Error(String(reason));
+      }
+
+      return payload;
+    }
+
+    function getSelectedProject() {
+      return state.projects.find((p) => p.id === state.selectedProjectId) || null;
+    }
+
+    function getSelectedSession() {
+      return state.sessions.find((s) => s.id === state.selectedSessionId) || null;
+    }
+
+    function renderProjectsPanel() {
+      const header = `
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Projects</h2>
+            <div class="panel-subtitle">${state.projects.length} total</div>
+          </div>
+        </div>
+      `;
+
+      let body = "";
+      if (state.projectsLoading) {
+        body = `<div class="state">Loading...</div>`;
+      } else if (state.projectsError) {
+        body = `<div class="state error">${escapeHtml(state.projectsError)}</div>`;
+      } else if (!state.projects.length) {
+        body = `<div class="state">No projects found.</div>`;
+      } else {
+        body = state.projects
+          .map((project) => {
+            const selected = project.id === state.selectedProjectId ? "selected" : "";
+            const titleDate = project.updatedAt ? formatDate(project.updatedAt) : "Unknown";
+            const relativeTime = timeAgo(project.updatedAt);
+            const compactDate = shortDate(project.updatedAt);
+            const displayTime = compactDate ? `${compactDate} · ${relativeTime}` : relativeTime;
+            return `
+              <button class="project-row ${selected}" data-action="select-project" data-project-id="${escapeHtml(project.id)}">
+                <div class="project-top">
+                  <span class="dot" style="background:${safeColor(project.iconColor)}"></span>
+                  <span class="project-name" title="${escapeHtml(project.name)}">${escapeHtml(project.name)}</span>
+                  <span class="project-time" title="${escapeHtml(titleDate)}">${escapeHtml(displayTime)}</span>
+                </div>
+                <div class="project-path" title="${escapeHtml(project.worktree || "")}">${escapeHtml(truncate(project.worktree || "(no worktree path)", 44))}</div>
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      el.projects.innerHTML = `${header}<div class="panel-body">${body}</div>`;
+    }
+
+    function renderSessionsPanel() {
+      const selectedProject = getSelectedProject();
+      const projectName = selectedProject ? selectedProject.name : "Sessions";
+      const totalLabel = state.sessionsTotal !== null ? ` / ${state.sessionsTotal}` : "";
+
+      const header = `
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">${escapeHtml(projectName)}</h2>
+            <div class="panel-subtitle">${state.sessions.length}${totalLabel} sessions</div>
+          </div>
+        </div>
+      `;
+
+      let body = "";
+      if (!state.selectedProjectId) {
+        body = `<div class="state">Select a project.</div>`;
+      } else if (state.sessionsLoading && state.sessions.length === 0) {
+        body = `<div class="state">Loading...</div>`;
+      } else if (state.sessionsError) {
+        body = `<div class="state error">${escapeHtml(state.sessionsError)}</div>`;
+      } else if (!state.sessions.length) {
+        body = `<div class="state">No sessions found.</div>`;
+      } else {
+        body = state.sessions
+          .map((session) => {
+            const selected = session.id === state.selectedSessionId ? "selected" : "";
+            const time = session.updatedAt ? timeAgo(session.updatedAt) : "unknown";
+            const date = shortDate(session.updatedAt);
+            const displayTime = date ? `${date} · ${time}` : time;
+            const exact = session.updatedAt ? formatDate(session.updatedAt) : "Unknown";
+            return `
+              <button class="session-card ${selected}" data-action="select-session" data-session-id="${escapeHtml(session.id)}">
+                <p class="session-title" title="${escapeHtml(session.title || "Untitled")}">${escapeHtml(session.title || "Untitled")}</p>
+                <div class="session-meta">
+                  <span title="${escapeHtml(exact)}">${escapeHtml(displayTime)}</span>
+                  ${session.hasSummary ? '<span class="badge">summarized</span>' : ""}
+                </div>
+              </button>
+            `;
+          })
+          .join("");
+
+        if (state.sessionsHasMore) {
+          body += `
+            <div class="load-more-wrap">
+              <button class="load-more-btn" data-action="load-more-sessions" ${state.sessionsLoadingMore ? "disabled" : ""}>
+                ${state.sessionsLoadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          `;
+        }
+      }
+
+      el.sessions.innerHTML = `${header}<div class="panel-body">${body}</div>`;
+    }
+
+    function renderToolResultPart(output) {
+      const full = toDisplayString(output);
+      if (full.length <= 2000) {
+        return `<pre>${escapeHtml(full || "(empty)")}</pre>`;
+      }
+
+      const shortId = `tool-short-${++toolResultCounter}`;
+      const fullId = `tool-full-${toolResultCounter}`;
+      const shortText = `${full.slice(0, 2000)}\n… (truncated)`;
+
+      return `
+        <pre id="${shortId}">${escapeHtml(shortText)}</pre>
+        <pre id="${fullId}" hidden>${escapeHtml(full)}</pre>
+        <button class="mini-btn" data-action="toggle-result" data-short-id="${shortId}" data-full-id="${fullId}" data-expanded="false">Show more</button>
+      `;
+    }
+
+    function renderMessagePart(part) {
+      const type = String(part?.type ?? "text").toLowerCase();
+
+      if (type === "step-start" || type === "snapshot") {
+        return "";
+      }
+
+      if (type === "text") {
+        const text = part?.text ?? "";
+        return `<div class="part">${renderMarkdownLite(toDisplayString(text))}</div>`;
+      }
+
+      if (type === "reasoning") {
+        const text = part?.text ?? "";
+        return `
+          <div class="part">
+            <details>
+              <summary class="summary-reasoning">Reasoning</summary>
+              <pre>${escapeHtml(toDisplayString(text) || "(empty)")}</pre>
+            </details>
+          </div>
+        `;
+      }
+
+      if (type === "tool") {
+        const partId = part?.id;
+        const toolName = part?.tool ?? "Unknown";
+        const statusClass = normalizeToolStatus(part?.state?.status);
+        const title = part?.state?.title;
+        const input = part?.state?.input ?? {};
+        const output = part?.state?.output;
+        const duration = formatDuration(part?.state?.time?.start, part?.state?.time?.end);
+        let attachmentHtml = "";
+
+        if (part?.hasAttachments && partId) {
+          attachmentHtml = `
+            <div style="margin-top:8px;">
+              <div class="tiny-muted">Attachment</div>
+              <img src="/api/parts/${encodeURIComponent(partId)}/image" loading="lazy" class="part-image" alt="Tool attachment" />
+            </div>
+          `;
+        }
+
+        return `
+          <div class="part">
+            <details>
+              <summary class="summary-tool">🔧 ${escapeHtml(String(toolName))}<span class="tool-status ${statusClass}">${escapeHtml(statusClass)}</span></summary>
+              ${title ? `<div class="tiny-muted" style="margin-top:6px;">${escapeHtml(String(title))}</div>` : ""}
+              <div class="tiny-muted" style="margin-top:6px;">Input</div>
+              <pre>${escapeHtml(toDisplayString(input) || "{}")}</pre>
+              ${hasContent(output) ? `<div class="tiny-muted" style="margin-top:8px;">Output</div>${renderToolResultPart(output)}` : ""}
+              ${duration ? `<div class="tiny-muted" style="margin-top:8px;">Execution time: ${escapeHtml(duration)}</div>` : ""}
+              ${attachmentHtml}
+            </details>
+          </div>
+        `;
+      }
+
+      if (type === "patch") {
+        const hash = String(part?.hash ?? "");
+        const shortHash = hash ? hash.slice(0, 7) : "unknown";
+        const files = Array.isArray(part?.files) ? part.files : [];
+        const fileList = files.map((file) => escapeHtml(pathTail(file))).join("<br>");
+
+        return `
+          <div class="part part-patch">
+            <div>📝 <strong>Patch</strong> <code>${escapeHtml(shortHash)}</code></div>
+            ${fileList ? `<div class="part-patch-files">${fileList}</div>` : ""}
+          </div>
+        `;
+      }
+
+      if (type === "file") {
+        const filename = part?.filename ?? "Attachment";
+        const mime = part?.mime ?? "unknown";
+        const hasImage = Boolean(part?.hasImage);
+        const isText = typeof mime === "string" && mime.toLowerCase().startsWith("text/");
+        const partId = part?.id;
+
+        let imageHtml = "";
+        if (hasImage && partId) {
+          imageHtml = `<img src="/api/parts/${encodeURIComponent(partId)}/image" loading="lazy" class="part-image" alt="${escapeHtml(String(filename))}" />`;
+        }
+
+        return `
+          <div class="part part-file-wrap">
+            <div class="part-file">
+              <span>📎</span>
+              <div>
+                <div>${escapeHtml(String(filename))}</div>
+                <div class="tiny-muted">${escapeHtml(String(mime))}${isText ? " · text file" : ""}</div>
+              </div>
+            </div>
+            ${imageHtml}
+          </div>
+        `;
+      }
+
+      if (type === "agent") {
+        const nameRaw = String(part?.name ?? part?.source?.value ?? "agent");
+        const name = nameRaw.replace(/^@+/, "") || "agent";
+        return `<div class="part"><span class="part-agent">🤖 @${escapeHtml(name)}</span></div>`;
+      }
+
+      if (type === "step-finish") {
+        const cost = formatCost(part?.cost);
+        const inputTokens = formatTokenValue(part?.tokens?.input);
+        const outputTokens = formatTokenValue(part?.tokens?.output);
+        return `
+          <div class="part part-step-finish">
+            <span>Step complete</span>
+            ${cost ? `<span>· ${escapeHtml(cost)}</span>` : ""}
+            <span>· ${escapeHtml(`${inputTokens}→${outputTokens} tokens`)}</span>
+          </div>
+        `;
+      }
+
+      if (type === "compaction") {
+        return `<div class="part part-compaction">── context compacted ──</div>`;
+      }
+
+      if (type === "retry") {
+        return `<div class="part part-retry">⟳ Retried</div>`;
+      }
+
+      const text = part?.text ?? part?.content ?? part?.value;
+      if (typeof text === "string" && text.trim()) {
+        return `<div class="part">${renderMarkdownLite(toDisplayString(text))}</div>`;
+      }
+
+      return `<div class="part"><pre>${escapeHtml(toDisplayString(part) || "(empty)")}</pre></div>`;
+    }
+
+    function renderSubagentCard(entry) {
+      const title = entry.title || entry.id || "Subagent";
+      const time = entry.time_created ? formatDate(entry.time_created) : "";
+      const ago = entry.time_created ? timeAgo(entry.time_created) : "";
+      const timeLabel = [time, ago].filter(Boolean).join(" · ");
+
+      return `
+        <div class="subagent-card" data-action="navigate-subagent" data-session-id="${escapeHtml(entry.id)}">
+          <div class="subagent-card-icon">🤖</div>
+          <div class="subagent-card-content">
+            <div class="subagent-card-title">${escapeHtml(title)}</div>
+            <div class="subagent-card-time">${escapeHtml(timeLabel || "Unknown")}</div>
+          </div>
+          <div class="subagent-card-arrow">→</div>
+        </div>
+      `;
+    }
+
+    function renderMessage(message) {
+      if (message?._type === "subagent") {
+        return renderSubagentCard(message);
+      }
+
+      const roleClass =
+        message.role === "user"
+          ? "role-user"
+          : message.role === "assistant"
+            ? "role-assistant"
+            : "role-other";
+
+      const roleLabel = message.role ? message.role.charAt(0).toUpperCase() + message.role.slice(1) : "Unknown";
+      const timeLabel = message.timestamp ? formatDate(message.timestamp) : "Unknown time";
+      const meta = [
+        `<span class="pill">${escapeHtml(roleLabel)}</span>`,
+        `<span>${escapeHtml(timeLabel)}</span>`
+      ];
+
+      if (message.role === "assistant" && message.model) {
+        meta.splice(1, 0, `<span class="pill">${escapeHtml(message.model)}</span>`);
+      }
+
+      const cost = formatCost(message.cost);
+      if (message.role === "assistant" && cost) {
+        meta.push(`<span class="pill">cost ${escapeHtml(cost)}</span>`);
+      }
+
+      if (message.role === "assistant" && typeof message.tokens === "number") {
+        meta.push(`<span class="pill">${message.tokens.toLocaleString()} tokens</span>`);
+      }
+
+      const renderedParts = message.parts.map((part) => renderMessagePart(part)).filter(Boolean);
+      const parts = renderedParts.length
+        ? renderedParts.join("")
+        : `<div class="part tiny-muted">(no message content)</div>`;
+
+      return `
+        <article class="message ${roleClass}">
+          <div class="message-meta">${meta.join("")}</div>
+          ${parts}
+        </article>
+      `;
+    }
+
+    function renderMessagesPanel() {
+      const fallbackTitle = getSelectedSession()?.title || "Session";
+      const title = state.sessionData?.title ?? fallbackTitle;
+      const sessionUpdatedAt = state.sessionData?.updatedAt ?? getSelectedSession()?.updatedAt ?? null;
+      const subtitle = state.selectedSessionId
+        ? `${state.messages.length} messages${sessionUpdatedAt ? ` · updated ${timeAgo(sessionUpdatedAt)}` : ""}`
+        : "";
+
+      const backBtn = state.sessionStack.length > 0
+        ? '<button class="back-btn" data-action="navigate-back">← Back</button>'
+        : "";
+
+      const header = `
+        <div class="panel-header">
+          <div style="flex:1;min-width:0;">
+            <h2 class="panel-title">${escapeHtml(title || "Session")}</h2>
+            <div class="panel-subtitle">${escapeHtml(subtitle)}</div>
+          </div>
+          ${backBtn}
+        </div>
+      `;
+
+      let body = "";
+      if (!state.selectedSessionId) {
+        body = `<div class="state">Select a session.</div>`;
+      } else if (state.sessionLoading) {
+        body = `<div class="state">Loading...</div>`;
+      } else if (state.sessionError) {
+        body = `<div class="state error">${escapeHtml(state.sessionError)}</div>`;
+      } else {
+        const messagesHtml = state.messages.length
+          ? state.messages
+            .map((message) => (message?._type === "subagent" ? renderSubagentCard(message) : renderMessage(message)))
+            .join("")
+          : `<div class="state">No messages for this session.</div>`;
+        body = `<div class="messages">${messagesHtml}</div>`;
+      }
+
+      el.messages.innerHTML = `${header}<div class="panel-body">${body}</div>`;
+    }
+
+    function extractTotal(payload) {
+      const raw = payload?.total ?? payload?.count ?? payload?.pagination?.total ?? payload?.meta?.total;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function extractHasMore(payload, loadedCount, pageSize, receivedCount, totalCount) {
+      const explicit =
+        payload?.has_more ??
+        payload?.hasMore ??
+        payload?.pagination?.has_more ??
+        payload?.pagination?.hasMore ??
+        payload?.meta?.has_more ??
+        payload?.meta?.hasMore;
+
+      if (typeof explicit === "boolean") return explicit;
+      if (totalCount !== null) return loadedCount < totalCount;
+      return receivedCount === pageSize;
+    }
+
+    async function loadProjects() {
+      const requestId = ++projectsRequestId;
+      state.projectsLoading = true;
+      state.projectsError = null;
+      renderProjectsPanel();
+
+      try {
+        const payload = await fetchJson("/api/projects");
+        if (requestId !== projectsRequestId) return;
+
+        const projects = extractProjects(payload).map((item, index) => normalizeProject(item, index));
+        state.projects = projects;
+      } catch (error) {
+        if (requestId !== projectsRequestId) return;
+        state.projectsError = error instanceof Error ? error.message : String(error);
+      } finally {
+        if (requestId !== projectsRequestId) return;
+        state.projectsLoading = false;
+        renderProjectsPanel();
+      }
+    }
+
+    async function loadSessions({ reset = false } = {}) {
+      if (!state.selectedProjectId) return;
+
+      if (reset) {
+        state.sessionsLoading = true;
+        state.sessionsError = null;
+        state.sessionsPage = 1;
+        state.sessionsHasMore = false;
+        state.sessionsTotal = null;
+      } else {
+        if (state.sessionsLoadingMore || !state.sessionsHasMore) return;
+        state.sessionsLoadingMore = true;
+      }
+
+      renderSessionsPanel();
+
+      const projectId = state.selectedProjectId;
+      const nextPage = reset ? 1 : state.sessionsPage + 1;
+      const requestId = ++sessionsRequestId;
+
+      try {
+        const payload = await fetchJson(
+          `/api/projects/${encodeURIComponent(projectId)}/sessions?page=${nextPage}&limit=${state.sessionsLimit}`
+        );
+        if (requestId !== sessionsRequestId || projectId !== state.selectedProjectId) return;
+
+        const incoming = extractSessions(payload).map((item, index) => normalizeSession(item, index));
+
+        if (reset) {
+          state.sessions = incoming;
+        } else {
+          const byId = new Map(state.sessions.map((session) => [session.id, session]));
+          for (const item of incoming) byId.set(item.id, item);
+          state.sessions = Array.from(byId.values());
+        }
+
+        state.sessionsTotal = extractTotal(payload);
+        state.sessionsHasMore = extractHasMore(
+          payload,
+          state.sessions.length,
+          state.sessionsLimit,
+          incoming.length,
+          state.sessionsTotal
+        );
+        state.sessionsPage = nextPage;
+      } catch (error) {
+        if (requestId !== sessionsRequestId || projectId !== state.selectedProjectId) return;
+        state.sessionsError = error instanceof Error ? error.message : String(error);
+      } finally {
+        if (requestId !== sessionsRequestId || projectId !== state.selectedProjectId) return;
+        state.sessionsLoading = false;
+        state.sessionsLoadingMore = false;
+        renderSessionsPanel();
+      }
+    }
+
+    async function loadSession(sessionId) {
+      state.selectedSessionId = sessionId;
+      state.sessionLoading = true;
+      state.sessionError = null;
+      state.sessionData = null;
+      state.messages = [];
+      renderSessionsPanel();
+      renderMessagesPanel();
+
+      const requestId = ++sessionRequestId;
+
+      try {
+        const sessionPayload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+        if (requestId !== sessionRequestId || state.selectedSessionId !== sessionId) return;
+
+        const sessionObject = sessionPayload?.session ?? sessionPayload?.data?.session ?? sessionPayload;
+        const selectedSession = getSelectedSession();
+        state.sessionData = {
+          id: String(sessionObject?.id ?? sessionObject?.session_id ?? sessionId),
+          title: sessionObject?.title ?? sessionObject?.name ?? selectedSession?.title ?? "Untitled",
+          parentId: sessionObject?.parent_id ?? sessionObject?.parentId ?? null,
+          updatedAt: parseTimestamp(
+            sessionObject?.time_updated ?? sessionObject?.updated_at ?? sessionObject?.time_created ?? sessionObject?.created_at
+          )
+        };
+
+        state.messages = extractMessages(sessionPayload).map((item, index) => normalizeMessage(item, index));
+      } catch (error) {
+        if (requestId !== sessionRequestId || state.selectedSessionId !== sessionId) return;
+        state.sessionError = error instanceof Error ? error.message : String(error);
+      } finally {
+        if (requestId !== sessionRequestId || state.selectedSessionId !== sessionId) return;
+        state.sessionLoading = false;
+        renderMessagesPanel();
+      }
+    }
+
+    function clearSelectedSession() {
+      state.selectedSessionId = null;
+      state.sessionLoading = false;
+      state.sessionError = null;
+      state.sessionData = null;
+      state.messages = [];
+      state.sessionStack = [];
+      renderSessionsPanel();
+      renderMessagesPanel();
+    }
+
+    function clearSelectedProject() {
+      state.selectedProjectId = null;
+      state.sessions = [];
+      state.sessionsLoading = false;
+      state.sessionsLoadingMore = false;
+      state.sessionsError = null;
+      state.sessionsPage = 1;
+      state.sessionsHasMore = false;
+      state.sessionsTotal = null;
+      clearSelectedSession();
+      renderProjectsPanel();
+      renderSessionsPanel();
+    }
+
+    function getMessagesScrollTop() {
+      const panelBody = el.messages.querySelector(".panel-body");
+      return panelBody ? panelBody.scrollTop : 0;
+    }
+
+    function restoreMessagesScrollTop(scrollTop) {
+      requestAnimationFrame(() => {
+        const panelBody = el.messages.querySelector(".panel-body");
+        if (!panelBody) return;
+        panelBody.scrollTop = Number.isFinite(scrollTop) ? scrollTop : 0;
+      });
+    }
+
+    async function navigateBack() {
+      const previous = state.sessionStack.pop();
+      if (!previous?.sessionId) return;
+      await loadSession(previous.sessionId);
+      restoreMessagesScrollTop(previous.scrollTop);
+    }
+
+    async function onAction(action, target) {
+      if (action === "select-project") {
+        const projectId = target.dataset.projectId;
+        if (!projectId || projectId === state.selectedProjectId) return;
+
+        state.selectedProjectId = projectId;
+        state.sessions = [];
+        state.sessionsError = null;
+        state.sessionsHasMore = false;
+        clearSelectedSession();
+        renderProjectsPanel();
+        renderSessionsPanel();
+        loadSessions({ reset: true });
+        return;
+      }
+
+      if (action === "select-session") {
+        const sessionId = target.dataset.sessionId;
+        if (!sessionId) return;
+        state.sessionStack = [];
+        await loadSession(sessionId);
+        return;
+      }
+
+      if (action === "navigate-subagent") {
+        const sessionId = target.dataset.sessionId;
+        if (!sessionId || !state.selectedSessionId || sessionId === state.selectedSessionId) return;
+
+        state.sessionStack.push({
+          sessionId: state.selectedSessionId,
+          scrollTop: getMessagesScrollTop()
+        });
+
+        await loadSession(sessionId);
+        return;
+      }
+
+      if (action === "navigate-back") {
+        if (!state.sessionStack.length) return;
+        await navigateBack();
+        return;
+      }
+
+      if (action === "load-more-sessions") {
+        loadSessions({ reset: false });
+        return;
+      }
+
+      if (action === "toggle-result") {
+        const shortEl = document.getElementById(target.dataset.shortId || "");
+        const fullEl = document.getElementById(target.dataset.fullId || "");
+        if (!shortEl || !fullEl) return;
+
+        const expanded = target.dataset.expanded === "true";
+        if (expanded) {
+          shortEl.hidden = false;
+          fullEl.hidden = true;
+          target.dataset.expanded = "false";
+          target.textContent = "Show more";
+        } else {
+          shortEl.hidden = true;
+          fullEl.hidden = false;
+          target.dataset.expanded = "true";
+          target.textContent = "Show less";
+        }
+      }
+    }
+
+    document.addEventListener("click", (event) => {
+      if (event.target.classList?.contains("part-image")) {
+        event.preventDefault();
+        const src = event.target.src;
+        if (!src) return;
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:20px;";
+        const img = document.createElement("img");
+        img.src = src;
+        img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;";
+        overlay.appendChild(img);
+        overlay.addEventListener("click", () => overlay.remove());
+        document.body.appendChild(overlay);
+        return;
+      }
+
+      const target = event.target.closest("[data-action]");
+      if (!target) return;
+      event.preventDefault();
+      void onAction(target.dataset.action, target);
+    });
+
+    document.addEventListener("keydown", async (event) => {
+      if (event.key !== "Escape") return;
+
+      const overlay = document.querySelector("div[style*='z-index:9999']");
+      if (overlay) {
+        overlay.remove();
+        return;
+      }
+
+      if (state.sessionStack.length > 0) {
+        event.preventDefault();
+        await navigateBack();
+        return;
+      }
+
+      if (state.selectedSessionId) {
+        clearSelectedSession();
+        return;
+      }
+
+      if (state.selectedProjectId) {
+        clearSelectedProject();
+      }
+    });
+
+    function initialRender() {
+      renderProjectsPanel();
+      renderSessionsPanel();
+      renderMessagesPanel();
+    }
+
+    initialRender();
+    loadProjects();
+  </script>
+</body>
+</html>

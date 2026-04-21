@@ -1,0 +1,38 @@
+{
+  "name": "@leeweisern/opencode-viewer",
+  "version": "1.0.0",
+  "description": "Local GUI to browse your OpenCode sessions, messages, and tool calls from the SQLite database",
+  "bin": {
+    "opencode-viewer": "./bin/cli.ts"
+  },
+  "files": [
+    "bin/",
+    "public/",
+    "server.ts"
+  ],
+  "scripts": {
+    "dev": "bun run --watch server.ts",
+    "start": "bun run server.ts"
+  },
+  "keywords": [
+    "opencode",
+    "viewer",
+    "sqlite",
+    "sessions",
+    "ai",
+    "cli",
+    "tui"
+  ],
+  "author": "kelvin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kelvin/opencode-viewer"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
